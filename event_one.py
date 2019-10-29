@@ -32,13 +32,14 @@ class RotateLeft(smach.State):
 
             turning = True
             previous_difference = None
+            angularSpeed = 0.4
             while turning:
-                if shutdown_requested:
+                if shutdown_requested: # Basically ctrl+C
                     return 'done1'
                 difference = minimum_angle_between_headings(target_heading, self.callbacks.heading)
 
                 if previous_difference is None:
-                    self.twist.angular.z = 0.4
+                    self.twist.angular.z = angularSpeed
                     self.cmd_vel_pub.publish(self.twist)
                 else:
                     if difference < 1:
@@ -46,7 +47,7 @@ class RotateLeft(smach.State):
                         self.twist.angular.z = 0
                         self.cmd_vel_pub.publish(self.twist)
                     else:
-                        self.twist.angular.z = 0.4
+                        self.twist.angular.z = angularSpeed
                         self.cmd_vel_pub.publish(self.twist)
 
                 if previous_difference != difference:
@@ -70,9 +71,10 @@ class Count(smach.State):
             symbol_red_mask = self.callbacks.symbol_red_mask.copy()
             symbol_red_mask[0:self.callbacks.h / 4, 0:self.callbacks.w] = 0
             count = 0
-            for i in range(10):
+            loopTotal = 10
+            for i in range(loopTotal):
                 count += detect_shape.count_objects(symbol_red_mask)
-            real_count = math.ceil(count/10)
+            real_count = math.ceil(count/loopTotal)
             print(real_count)
             for i in range(int(real_count)):
                 self.sound_pub.publish(1)
@@ -99,13 +101,14 @@ class RotateRight(smach.State):
 
             turning = True
             previous_difference = None
+            angularSpeed = -0.4
             while turning:
                 if shutdown_requested:
                     return 'done1'
                 difference = minimum_angle_between_headings(target_heading, self.callbacks.heading)
 
                 if previous_difference is None:
-                    self.twist.angular.z = -0.4
+                    self.twist.angular.z = angularSpeed
                     self.cmd_vel_pub.publish(self.twist)
                 else:
                     if difference < 1:
@@ -113,7 +116,7 @@ class RotateRight(smach.State):
                         self.twist.angular.z = 0
                         self.cmd_vel_pub.publish(self.twist)
                     else:
-                        self.twist.angular.z = -0.4
+                        self.twist.angular.z = angularSpeed
                         self.cmd_vel_pub.publish(self.twist)
 
                 if previous_difference != difference:
@@ -123,6 +126,14 @@ class RotateRight(smach.State):
 
 
 def minimum_angle_between_headings(a, b):
+    ''' return the difference in angle between where we are and where we want to be
+    Parameters:
+        a (int):    the target heading of where we want to be
+        b (int):    the current heading of where we are
+    Returns:
+        heading_difference (int):   the difference in angle between where we are
+                                    and where we want to be
+    '''
     heading_difference = a - b
     if heading_difference < 0:
         heading_difference += 360
