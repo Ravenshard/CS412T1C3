@@ -50,8 +50,8 @@ class OdomFollow(smach.State):
         while math.sqrt((sp.x - ep.x) ** 2 + (sp.y - ep.y) ** 2) < distance:
             if shutdown_requested:
                 return 'done3'
-            h = self.callbacks.h
-            w = self.callbacks.w
+            h = self.callbacks.secondary_h
+            w = self.callbacks.secondary_w
             search_top = 3 * h / 4
             search_bot = h
             bottom_white_mask = self.callbacks.white_mask.copy()
@@ -64,11 +64,11 @@ class OdomFollow(smach.State):
                 cy = int(M['m01'] / M['m00'])
                 # BEGIN CONTROL
                 if self.prev_error is None:
-                    error = cx - self.callbacks.w / 2
+                    error = cx - w / 2
                     rotation = -(self.Kp * float(error))
                     self.prev_error = error
                 else:
-                    error = cx - self.callbacks.w / 2
+                    error = cx - w / 2
                     rotation = -(self.Kp * float(error) + self.Kd * (error - self.prev_error))
                     self.prev_error = error
                 self.twist.linear.x = self.speed
@@ -139,8 +139,8 @@ class Check(smach.State):
         global number_of_checks
         while not shutdown_requested:
             number_of_checks += 1
-            h = self.callbacks.h
-            w = self.callbacks.w
+            h = self.callbacks.main_h
+            w = self.callbacks.main_w
             symbol_red_mask = self.callbacks.symbol_red_mask.copy()
             symbol_red_mask[0:h / 2, 0:w] = 0
             shapes = detect_shape.detect_shape(symbol_red_mask)[0]

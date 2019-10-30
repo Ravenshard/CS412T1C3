@@ -69,7 +69,7 @@ class Count(smach.State):
         global shutdown_requested
         while not shutdown_requested:
             symbol_red_mask = self.callbacks.symbol_red_mask.copy()
-            symbol_red_mask[0:self.callbacks.h / 4, 0:self.callbacks.w] = 0
+            symbol_red_mask[0:self.callbacks.main_h / 4, 0:self.callbacks.main_w] = 0
             count = 0
             loopTotal = 10
             for i in range(loopTotal):

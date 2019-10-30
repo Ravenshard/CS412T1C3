@@ -52,9 +52,9 @@ class Stop(smach.State):
         red_events = [1, 3]
         red_stops = [0, 2, 4, 5]
         if red_count in red_stops:
-            distance = 0.1
+            distance = 0
         else:
-            distance = 0.35
+            distance = 0.20
 
         while self.callbacks.pose is None:
             time.sleep(1)
@@ -65,8 +65,8 @@ class Stop(smach.State):
         while math.sqrt((sp.x - ep.x) ** 2 + (sp.y - ep.y) ** 2) < distance:
             if shutdown_requested:
                 return 'done'
-            h = self.callbacks.h
-            w = self.callbacks.w
+            h = self.callbacks.secondary_h
+            w = self.callbacks.secondary_w
             search_top = 3 * h / 4
             search_bot = h
             bottom_white_mask = self.callbacks.white_mask.copy()
@@ -79,11 +79,11 @@ class Stop(smach.State):
                 cy = int(M['m01'] / M['m00'])
                 # BEGIN CONTROL
                 if self.prev_error is None:
-                    error = cx - self.callbacks.w / 2
+                    error = cx - w / 2
                     rotation = -(self.Kp * float(error))
                     self.prev_error = error
                 else:
-                    error = cx - self.callbacks.w / 2
+                    error = cx - w / 2
                     rotation = -(self.Kp * float(error) + self.Kd * (error - self.prev_error))
                     self.prev_error = error
                 self.twist.linear.x = self.speed
@@ -139,41 +139,26 @@ class FollowLine(smach.State):
                 bottom_red_mask = self.callbacks.red_mask.copy()
 
                 # Check if a long red strip has been detected
-                h = self.callbacks.h
-                w = self.callbacks.w
+                h = self.callbacks.secondary_h
+                w = self.callbacks.secondary_w
                 search_top = 3 * h / 4
                 search_bot = h
                 bottom_white_mask[0:search_top, 0:w] = 0
                 bottom_white_mask[search_bot:h, 0:w] = 0
-                bottom_red_mask[0:search_top, 0:w] = 0
-                bottom_red_mask[search_bot:h, 0:w] = 0
+                bottom_red_mask[h*1/2:h, 0:w] = 0
                 red_pixel_count = cv2.sumElems(bottom_red_mask)[0] / 255
-                white_pixel_count = cv2.sumElems(bottom_white_mask)[0] / 255
 
                 # Check if a half red strip, on the left, has been detected
                 left_red_mask = bottom_red_mask.copy()
                 right_red_mask = bottom_red_mask.copy()
                 left_red_mask[0:h, w / 2: w] = 0
                 right_red_mask[0:h, 0: w / 2] = 0
-                left_red_pixel_count = cv2.sumElems(left_red_mask)[0] / 255
-                right_red_pixel_count = cv2.sumElems(right_red_mask)[0] / 255
-                # cv2.imshow("left window", left_red_mask)
-                # cv2.imshow("right window", right_red_mask)
-                # print(red_pixel_count)
-                #print(left_red_pixel_count - right_red_pixel_count)
 
                 RM = cv2.moments(bottom_red_mask)
                 if RM['m00'] > 0:
                     ry = int(RM['m01'] / RM['m00'])
-                    # print(" RedY: " + str(ry) + " Red Pixel: " + str(red_pixel_count))  # ----------
 
-                    #if red_pixel_count > 3000 and ry > 430:
-                    #    print(red_pixel_count)
-                    #    print(ry)
-                    #    print("Full red found")
-                    #    return 'stop'
-
-                    if red_pixel_count > 1000 and ry > 430:
+                    if red_pixel_count > 1000 and ry > 200:
                         print(red_pixel_count)
                         print(ry)
                         print("Right red found")
@@ -187,19 +172,17 @@ class FollowLine(smach.State):
                     cx = int(WM['m10'] / WM['m00'])
                     cy = int(WM['m01'] / WM['m00'])
 
-                    # BEGIN CONTROL
                     if self.prev_error is None:
-                        error = cx - self.callbacks.w / 2
+                        error = cx - w / 2
                         rotation = -(self.Kp * float(error))
                         self.prev_error = error
                     else:
-                        error = cx - self.callbacks.w / 2
+                        error = cx - w / 2
                         rotation = -(self.Kp * float(error) + self.Kd * (error - self.prev_error))
                         self.prev_error = error
                     self.twist.linear.x = self.speed
                     self.twist.angular.z = rotation
-                    self.cmd_vel_pub.publish(self.twist)
-                    # END CONTROL
+                    self.cmd_vel_pub.publish(self.twist)  # TODO: uncomment
         return 'done'
 
 
@@ -220,29 +203,26 @@ class Callbacks:
         self.prev_error = None
         self.past_error = []
 
-        self.image_sub = rospy.Subscriber('camera/rgb/image_raw',
-                                          Image, self.image_callback)
-
         self.twist = Twist()
 
-        self.red_mask = None
-        self.white_mask = None
-        self.symbol_red_mask = None
-        self.symbol_green_mask = None
+        self.red_mask = None  # Gotten with secondary camera
+        self.white_mask = None  # Gotten with secondary camera
+        self.symbol_red_mask = None  # Gotten with Main camera
+        self.symbol_green_mask = None  # Gotten with Main
 
-        self.h = None
-        self.w = None
-        self.d = None
+        self.main_h = None
+        self.main_w = None
+        self.main_d = None
+
+        self.secondary_h = None
+        self.secondary_w = None
+        self.secondary_d = None
 
         self.pose = None
-
         self.heading = None
-
-        self.sound_pub = rospy.Publisher('/mobile_base/commands/sound', Sound, queue_size=1)
 
     def odometry_callback(self, msg):
         self.pose = msg.pose.pose.position
-        #print(self.pose)
         yaw = euler_from_quaternion([
             msg.pose.pose.orientation.x,
             msg.pose.pose.orientation.y,
@@ -252,29 +232,11 @@ class Callbacks:
         self.heading = (yaw + math.pi) * (180 / math.pi)
         return
 
-    def image_callback(self, msg):
+    def main_image_callback(self, msg):
         image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
         hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
-        #upper_white = numpy.array([360, 20, 255])
-        #lower_white = numpy.array([0,  0,  240])
 
-        #upper_white = numpy.array([360, 25, 255])
-        #lower_white = numpy.array([0, 0, 200])
-
-        self.h, self.w, self.d = image.shape
-
-        upper_white = numpy.array([360, 30, 255])
-        lower_white = numpy.array([0, 0, 230])
-        self.white_mask = cv2.inRange(hsv, lower_white, upper_white)
-
-        upper_red_a = numpy.array([20, 255, 255])
-        lower_red_a = numpy.array([0, 100, 100])
-        red_mask_a = cv2.inRange(hsv, lower_red_a, upper_red_a)
-
-        upper_red_b = numpy.array([255, 255, 255])
-        lower_red_b = numpy.array([150, 100, 100])
-        red_mask_b = cv2.inRange(hsv, lower_red_b, upper_red_b)
-        self.red_mask = cv2.bitwise_or(red_mask_a, red_mask_b)
+        self.main_h, self.main_w, self.main_d = image.shape
 
         upper_red_a = numpy.array([20, 255, 255])
         lower_red_a = numpy.array([0, 200, 60])
@@ -290,6 +252,46 @@ class Callbacks:
         lower_green = numpy.array([56, 43, 90])
         self.symbol_green_mask = cv2.inRange(hsv, lower_green, upper_green)
 
+        # TESTING STUFF BELOW
+        '''
+        h = self.h
+        w = self.w
+        symbol_red_mask = self.symbol_red_mask.copy()
+        symbol_red_mask[0:h/4, 0:w] = 0
+        symbol_red_mask[3*h/4:h, 0:w] = 0
+
+        symbol_green_mask = self.symbol_green_mask.copy()
+        symbol_green_mask[0:h / 4, 0:w] = 0
+        symbol_green_mask[3 * h / 4:h, 0:w] = 0
+
+        #shapes = detect_shape.detect_shape(symbol_green_mask)[0]
+        
+        cv2.imshow("red symbol window", self.red_mask)
+        cv2.imshow("green symbol window", self.white_mask)
+        '''
+        cv2.waitKey(3)
+
+    def secondary_image_callback(self, msg):
+        image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
+        hsv = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+
+        self.secondary_h, self.secondary_w, self.secondary_d = image.shape
+
+        upper_white = numpy.array([360, 20, 255])
+        lower_white = numpy.array([0, 0, 250])
+        self.white_mask = cv2.inRange(hsv, lower_white, upper_white)
+
+        upper_red_a = numpy.array([20, 255, 255])
+        lower_red_a = numpy.array([0, 100, 100])
+        red_mask_a = cv2.inRange(hsv, lower_red_a, upper_red_a)
+
+        upper_red_b = numpy.array([255, 255, 255])
+        lower_red_b = numpy.array([150, 100, 100])
+        red_mask_b = cv2.inRange(hsv, lower_red_b, upper_red_b)
+        self.red_mask = cv2.bitwise_or(red_mask_a, red_mask_b)
+
+        # TESTING STUFF BELOW
+        '''
         bottom_white_mask = self.white_mask.copy()
         bottom_red_mask = self.red_mask.copy()
         h = self.h
@@ -305,27 +307,21 @@ class Callbacks:
 
         # self.white_mask = white_mask
         # self.red_mask = red_mask
-
-        symbol_red_mask = self.symbol_red_mask.copy()
-        symbol_red_mask[0:h/4, 0:w] = 0
-        symbol_red_mask[3*h/4:h, 0:w] = 0
-
-        symbol_green_mask = self.symbol_green_mask.copy()
-        #symbol_green_mask[0:h / 4, 0:w] = 0
-        #symbol_green_mask[0:h, 0:w / 4] = 0
-        #symbol_green_mask[0:h, 3 * w / 4:w] = 0
-        #symbol_green_mask[3 * h / 4:h, 0:w] = 0
-
-        symbol_green_mask[0:h / 4, 0:w] = 0
-        symbol_green_mask[3 * h / 4:h, 0:w] = 0
-
-        shapes = detect_shape.detect_shape(symbol_green_mask)[0]
-        #print(shapes)
+        '''
+        bottom_red_mask = self.red_mask.copy()
+        h = self.secondary_h
+        w = self.secondary_w
+        search_top = 3 * h / 4
+        search_bot = h
+        bottom_red_mask[h*1/2:h, 0:w] = 0
+        #bottom_red_mask[search_bot:h, 0:w] = 0
 
         # print(cv2.sumElems(red_mask)[0] / 255)
-        cv2.imshow("green window", symbol_green_mask)
-        cv2.imshow("white window", self.white_mask)
+        #cv2.imshow("red window", bottom_red_mask)
+        #cv2.imshow("white window", bottom_white_mask)
         cv2.waitKey(3)
+
+
 
 
 def main():
@@ -333,10 +329,13 @@ def main():
     global shutdown_requested
     global red_count
 
+    # TESTING STUFF BELOW
     event_two.previous_shape = 4
 
-    #red_count = 0
-    red_count = 2
+    # red_count = 0
+    red_count = 1
+    # red_count = 2
+    # red_count = 3
     # red_count = 4
 
     button_start = False
@@ -349,8 +348,8 @@ def main():
     rospy.init_node('line_follow_bot')
 
     callbacks = Callbacks()
-    #rospy.Subscriber('camera/rgb/image_raw', Image, callbacks.image_callback)
-    rospy.Subscriber('/camera/image_raw', Image, callbacks.image_callback)
+    rospy.Subscriber('camera/rgb/image_raw', Image, callbacks.main_image_callback)
+    rospy.Subscriber('/cv_camera/image_raw', Image, callbacks.secondary_image_callback)
     rospy.Subscriber("odom", Odometry, callbacks.odometry_callback)
 
     # Create done outcome which will stop the state machine

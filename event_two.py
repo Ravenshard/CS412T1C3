@@ -85,14 +85,13 @@ class Follow(smach.State):
                 bottom_red_mask = self.callbacks.red_mask.copy()
 
                 # Check if a long red strip has been detected
-                h = self.callbacks.h
-                w = self.callbacks.w
+                h = self.callbacks.secondary_h
+                w = self.callbacks.secondary_w
                 search_top = 3 * h / 4
                 search_bot = h
                 bottom_white_mask[0:search_top, 0:w] = 0
                 bottom_white_mask[search_bot:h, 0:w] = 0
-                bottom_red_mask[0:search_top, 0:w] = 0
-                bottom_red_mask[search_bot:h, 0:w] = 0
+                bottom_red_mask[h*1/2:h, 0:w] = 0
                 red_pixel_count = cv2.sumElems(bottom_red_mask)[0] / 255
                 white_pixel_count = cv2.sumElems(bottom_white_mask)[0] / 255
 
@@ -105,7 +104,7 @@ class Follow(smach.State):
                 if RM['m00'] > 0:
                     ry = int(RM['m01'] / RM['m00'])
 
-                    if red_pixel_count > 500 and ry > 430:
+                    if red_pixel_count > 500 and ry > 100:
                         print(red_pixel_count)
                         print(ry)
                         print("red found")
@@ -120,11 +119,11 @@ class Follow(smach.State):
 
                     # BEGIN CONTROL
                     if self.prev_error is None:
-                        error = cx - self.callbacks.w / 2
+                        error = cx - w / 2
                         rotation = -(self.Kp * float(error))
                         self.prev_error = error
                     else:
-                        error = cx - self.callbacks.w / 2
+                        error = cx - w / 2
                         rotation = -(self.Kp * float(error) + self.Kd * (error - self.prev_error))
                         self.prev_error = error
                     self.twist.linear.x = self.speed
@@ -152,7 +151,7 @@ class Stop(smach.State):
         global checked
 
         if not checked:
-            distance = 0.0001
+            distance = 0.
         else:
             distance = 0.35
 
@@ -168,8 +167,8 @@ class Stop(smach.State):
             #print(str(math.sqrt((sp.x - ep.x) ** 2 + (sp.y - ep.y) ** 2)) + " "+str(distance))
             if shutdown_requested:
                 return 'done2'
-            h = self.callbacks.h
-            w = self.callbacks.w
+            h = self.callbacks.secondary_h
+            w = self.callbacks.secondary_w
             search_top = 3 * h / 4
             search_bot = h
             bottom_white_mask = self.callbacks.white_mask.copy()
@@ -182,14 +181,13 @@ class Stop(smach.State):
                 cy = int(M['m01'] / M['m00'])
                 # BEGIN CONTROL
                 if self.prev_error is None:
-                    error = cx - self.callbacks.w / 2
+                    error = cx - w / 2
                     rotation = -(self.Kp * float(error))
                     self.prev_error = error
                 else:
-                    error = cx - self.callbacks.w / 2
+                    error = cx - w / 2
                     rotation = -(self.Kp * float(error) + self.Kd * (error - self.prev_error))
                     self.prev_error = error
-                print(self.speed)
                 self.twist.linear.x = self.speed
                 self.twist.angular.z = rotation
                 self.cmd_vel_pub.publish(self.twist)
@@ -198,9 +196,9 @@ class Stop(smach.State):
             else:
                 self.twist.linear.x = 2.0
                 self.cmd_vel_pub.publish(self.twist)
-                if time.time() - start > 0.7:
-                    print("break")
-                    break
+                #if time.time() - start > 0.7:
+                #    print("break")
+                #    break
 
         self.twist.linear.x = 0
         self.twist.angular.z = 0
@@ -228,8 +226,8 @@ class Check(smach.State):
         while not shutdown_requested:
             symbol_red_mask = self.callbacks.symbol_red_mask.copy()
             symbol_green_mask = self.callbacks.symbol_green_mask.copy()
-            h = self.callbacks.h
-            w = self.callbacks.w
+            h = self.callbacks.main_h
+            w = self.callbacks.main_w
             symbol_red_mask[0:h / 4, 0:w] = 0
             symbol_red_mask[3 * h / 4:h, 0:w] = 0
             symbol_green_mask[0:h / 4, 0:w] = 0
