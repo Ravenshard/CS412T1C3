@@ -22,7 +22,7 @@ def classify(c):
     peri = cv2.arcLength(c, True)
     approx = cv2.approxPolyDP(c, 0.02 * peri, True)
     # if the shape is a triangle, it will have 3 vertices
-    if len(approx) == 3:
+    if len(approx) == 9:
         shape = "triangle"
 
     elif len(approx) == 4:
@@ -87,9 +87,9 @@ def detect_shape(mask, canvas=None, threshold=100):
             elif len(approx) > 9:
                 if canvas != None:
                     cv2.drawContours(canvas, [cnt], 0, (0, 255, 255), -1)
-                detected_shapes.append(Shapes.circle)
+                detected_shapes.append(Shapes.triangle)
                 moments.append(cv2.moments(cnt))
             else:
-                detected_shapes.append(Shapes.unknown)
+                detected_shapes.append(Shapes.circle)
                 moments.append(cv2.moments(cnt))
     return detected_shapes, moments

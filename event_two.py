@@ -237,16 +237,16 @@ class Check(smach.State):
 
             count = 0
             real_count = 0
-            for i in range(10):
+            for i in range(100):
                 count += detect_shape.count_objects(symbol_red_mask)
-            real_count += math.ceil(count / 10)
+            real_count += math.ceil(count / 100)
 
             count = 0
-            for i in range(10):
+            for i in range(100):
                 count += detect_shape.count_objects(symbol_green_mask)
-            real_count += math.ceil(count / 10)
+            real_count += math.ceil(count / 100)
 
-            print(real_count)
+            # print(real_count)
             for i in range(int(real_count)):
                 self.sound_pub.publish(1)
                 time.sleep(1)
@@ -259,7 +259,11 @@ class Check(smach.State):
             shapes = detect_shape.detect_shape(symbol_green_mask)[0]
             if len(shapes) > 0:
                 previous_shape = shapes[0].value
-                print(previous_shape)
+                # print(previous_shape)
+                if previous_shape == 9: print("\nTRIANGLE\n")
+                elif previous_shape == -1: print("\nCIRCLE\n")
+                elif previous_shape == 4: print("\nSQUARE\n")
+                else: print("\nOH NO\n")
             return 'rotate_180'
             '''
             while True:

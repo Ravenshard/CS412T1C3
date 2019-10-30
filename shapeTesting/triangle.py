@@ -17,6 +17,10 @@ bridge = cv_bridge.CvBridge()
 shutdown_requested = False
 h, w, d = 0, 0, 0
 
+# Square is defined as having 4 verticles over 7000 times out of 10000
+# Circle is defined as having -1 verticles over 9000 times out of 10000
+# Triangle is defined as having 9 verticles over 9000 times out of 10000
+
 class Shapes(Enum):
     unknown = -1
     triangle = 3
@@ -84,7 +88,8 @@ def stuff():
     print("1")
     rospy.sleep(1)
     count = 0
-    while not shutdown_requested and count < 10000:
+    x = rospy.get_rostime()
+    while not shutdown_requested and count < 1000:
         if symbol_green_mask_good[0][0] == 'a': continue
         symbol_green_mask = symbol_green_mask_good.copy()
 
@@ -97,6 +102,7 @@ def stuff():
             # print(previous_shape)
         count += 1
     print(endDict)
+    print((rospy.get_rostime() - x)/1000)
     return 'rotate_180'
 
 
