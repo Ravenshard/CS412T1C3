@@ -73,7 +73,7 @@ def stuff():
     global symbol_green_mask_orig, symbol_green_mask_good, h, w, d
     rospy.init_node('triangle')
 
-    image_sub = rospy.Subscriber('/usb_cam/image_raw',
+    image_sub = rospy.Subscriber('camera/rgb/image_raw',
                                       Image, image_callback)
 
 
@@ -83,12 +83,7 @@ def stuff():
     endDict[4] = 0
     endDict[5] = 0
     endDict[9] = 0
-    print("2")
-    rospy.sleep(1)
-    print("1")
-    rospy.sleep(1)
     count = 0
-    x = rospy.get_rostime()
     while not shutdown_requested and count < 1000:
         if symbol_green_mask_good[0][0] == 'a': continue
         symbol_green_mask = symbol_green_mask_good.copy()
@@ -102,7 +97,11 @@ def stuff():
             # print(previous_shape)
         count += 1
     print(endDict)
-    print((rospy.get_rostime() - x)/1000)
+    fileObj = open("notes.txt", 'a')
+    fileObj.write("----------------\n")
+    fileObj.write("-1: {}\t 3: {}\t 4: {}\t 5: {}\t 9: {}".format(endDict[-1], endDict[3], endDict[4], endDict[5], endDict[9]))
+    fileObj.write("\n")
+    fileObj.close()
     return 'rotate_180'
 
 

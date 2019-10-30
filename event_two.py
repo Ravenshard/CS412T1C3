@@ -33,7 +33,8 @@ class RotateLeft(smach.State):
         while not shutdown_requested:
 
             target_heading = (self.callbacks.heading + 90) % 360
-
+            # val = turn(self, target_heading)
+            # if val != None: return val
             turning = True
             previous_difference = None
             while turning:
@@ -250,32 +251,29 @@ class Check(smach.State):
                 time.sleep(1)
             checked = True
 
-            symbol_green_mask = self.callbacks.symbol_green_mask.copy()
-            symbol_green_mask[0:h / 4, 0:w] = 0
-            symbol_green_mask[3 * h / 4:h, 0:w] = 0
-
-            shapes = detect_shape.detect_shape(symbol_green_mask)[0]
-            if len(shapes) > 0:
-                previous_shape = shapes[0].value
-                # print(previous_shape)
-                if previous_shape == 9: print("\nTRIANGLE\n")
-                elif previous_shape == -1: print("\nCIRCLE\n")
-                elif previous_shape == 4: print("\nSQUARE\n")
-                else: print("\nOH NO\n")
-            return 'rotate_180'
-            '''
-            while True:
+            endDict = dict()
+            endDict[-1] = 0
+            endDict[3] = 0
+            endDict[4] = 0
+            endDict[5] = 0
+            endDict[9] = 0
+            for i in range(10000):
                 shapes = detect_shape.detect_shape(symbol_green_mask)[0]
-                if len(shapes) <= 0:
-                    continue
-                print(shapes)
-                for shape in shapes:
-                    previous_shape = shape
-                    if previous_shape.value != -1:
-                        break
-            print(previous_shape)
+                if len(shapes) > 0:
+                    endDict[shapes[0].value] += 1
+                    previous_shape = shapes[0].value
+            if endDict[4] > 7000:
+                previous_shape = 4
+                print("SQUARE")
+            elif endDict[9] > 9000:
+                previous_shape = 9
+                print("TRIANGLE")
+            elif endDict[-1] > 9000:
+                previous_shape = -1
+                print("CIRCLE")
+            print(endDict)
+
             return 'rotate_180'
-            '''
         return 'done1'
 
 
@@ -328,6 +326,31 @@ def minimum_angle_between_headings(a, b):
         if heading_difference < 0:
             heading_difference += 360
     return heading_difference
+
+
+def turn(classObj, target_heading):
+    global shutdown_requested
+    turning = True
+    previous_difference = None
+    while turning:
+        if shutdown_requested:
+            return 'done2'
+        difference = minimum_angle_between_headings(target_heading, classObj.callbacks.heading)
+
+        if previous_difference is None:
+            classObj.twist.angular.z = 0.4
+            classObj.cmd_vel_pub.publish(self.twist)
+        else:
+            if difference < 1:
+                turning = False
+                classObj.twist.angular.z = 0
+                classObj.cmd_vel_pub.publish(self.twist)
+            else:
+                classObj.twist.angular.z = 0.4
+                classObj.cmd_vel_pub.publish(self.twist)
+
+        if previous_difference != difference:
+            previous_difference = difference
 
 
 def get_state_machine(callbacks):

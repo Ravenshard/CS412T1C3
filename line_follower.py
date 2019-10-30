@@ -265,7 +265,7 @@ class Callbacks:
         symbol_green_mask[3 * h / 4:h, 0:w] = 0
 
         #shapes = detect_shape.detect_shape(symbol_green_mask)[0]
-        
+
         cv2.imshow("red symbol window", self.red_mask)
         cv2.imshow("green symbol window", self.white_mask)
         '''
@@ -333,8 +333,8 @@ def main():
     event_two.previous_shape = 4
 
     # red_count = 0
-    red_count = 1
-    # red_count = 2
+    # red_count = 1
+    red_count = 2
     # red_count = 3
     # red_count = 4
 

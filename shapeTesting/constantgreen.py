@@ -23,7 +23,7 @@ def request_shutdown(sig, frame):
 def main():
     global symbol_green_mask_orig, symbol_green_mask_good, h, w, d
     rospy.init_node('green')
-    image_sub = rospy.Subscriber('/usb_cam/image_raw',
+    image_sub = rospy.Subscriber('camera/rgb/image_raw',
                                   Image, image_callback)
     while not shutdown_requested:
         rospy.sleep(1)
