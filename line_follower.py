@@ -1,18 +1,5 @@
 #!/usr/bin/env python
 
-import signal
-import rospy
-import smach
-import smach_ros
-import math
-from math import tanh
-from geometry_msgs.msg import Twist
-from sensor_msgs.msg import Image
-import numpy as np
-from sensor_msgs.msg import LaserScan
-from sensor_msgs.msg import Joy
-from tf.transformations import euler_from_quaternion
-
 import cv2
 import cv_bridge
 import numpy
@@ -20,19 +7,50 @@ import time
 import event_one
 import event_two
 import event_three
+import event_four
 import detect_shape
+import signal
+import rospy
+import smach
+import smach_ros
+import math
+from geometry_msgs.msg import Twist
+from sensor_msgs.msg import Image
+from sensor_msgs.msg import Joy
+from tf.transformations import euler_from_quaternion
+from ar_track_alvar_msgs.msg import AlvarMarkers
 from nav_msgs.msg import Odometry
-
-from kobuki_msgs.msg import Sound
 
 
 global shutdown_requested
 global red_count
 
 
+class Wait(smach.State):
+
+    def __init__(self, callbacks):
+        smach.State.__init__(self, outcomes=['follow_line', 'done'])
+        self.callbacks = callbacks
+        self.prev_error = None
+        self.Kp = 1.0 / 50.0
+        self.Ki = 1.0 / 50.0
+        self.Kd = 1.0 / 50.0
+        self.speed = 0.8
+        self.twist = Twist()
+        self.cmd_vel_pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=1)
+
+    def execute(self, userdata):
+        global shutdown_requested
+        while not shutdown_requested:
+            if self.callbacks.stopWaiting:
+                return 'follow_line'
+            time.sleep(1)
+        return 'done'
+
+
 class Stop(smach.State):
     def __init__(self, callbacks):
-        smach.State.__init__(self, outcomes=['follow_line', 'done', 'event_one', 'event_two', 'event_three'])
+        smach.State.__init__(self, outcomes=['follow_line', 'done', 'event_one', 'event_two', 'event_three', 'event_four'])
         self.callbacks = callbacks
         self.twist = Twist()
         self.cmd_vel_pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=1)
@@ -110,8 +128,12 @@ class Stop(smach.State):
                 return 'done'
 
         if red_count == 5:
-            #return 'follow_line'
+            # return 'follow_line'
             return 'event_three'
+
+        if red_count == 4:
+            # return 'follow_line'
+            return 'event_four'
 
         return 'follow_line'
 
@@ -191,6 +213,7 @@ def request_shutdown(sig, frame):
     event_one.shutdown_requested = True
     event_two.shutdown_requested = True
     event_three.shutdown_requested = True
+    event_four.shutdown_requested = True
     shutdown_requested = True
 
 
@@ -221,6 +244,10 @@ class Callbacks:
         self.pose = None
         self.heading = None
 
+        self.target_box = 1
+        self.tag_visible = False
+        self.stopWaiting = False
+
     def odometry_callback(self, msg):
         self.pose = msg.pose.pose.position
         yaw = euler_from_quaternion([
@@ -231,6 +258,35 @@ class Callbacks:
         ])[2]
         self.heading = (yaw + math.pi) * (180 / math.pi)
         return
+
+    def controller_callback(self, msg):
+        if msg.buttons[6] == 1:
+            self.stopWaiting = False
+        elif msg.buttons[7] == 1:
+            self.stopWaiting = True
+        elif msg.buttons[2] == 1:
+            self.target_box = 2
+        elif msg.buttons[3] == 1:
+            self.target_box = 3
+        elif msg.buttons[0] == 1:
+            self.target_box = 4
+        elif msg.axes[0] == 1:
+            self.target_box = 5
+        elif msg.axes[1] == -1:
+            self.target_box = 6
+        elif msg.axes[0] == -1:
+            self.target_box = 7
+        elif msg.axes[1] == 1:
+            self.target_box = 8
+
+    def marker_callback(self, msg):
+        valid_marker_ids = range(1, 11)
+        if len(msg.markers) > 0:
+            for marker in msg.markers:
+                if marker.id in valid_marker_ids:
+                    self.tag_visible = True
+                    return
+        self.tag_visible = False
 
     def main_image_callback(self, msg):
         image = self.bridge.imgmsg_to_cv2(msg, desired_encoding='bgr8')
@@ -344,25 +400,31 @@ def main():
     event_one.shutdown_requested = False
     event_two.shutdown_requested = False
     event_three.shutdown_requested = False
+    event_four.shutdown_requested = False
 
     rospy.init_node('line_follow_bot')
 
     callbacks = Callbacks()
-    rospy.Subscriber('camera/rgb/image_raw', Image, callbacks.main_image_callback)
     rospy.Subscriber('/cv_camera/image_raw', Image, callbacks.secondary_image_callback)
+    rospy.Subscriber('camera/rgb/image_raw', Image, callbacks.main_image_callback)
+    rospy.Subscriber('ar_pose_marker', AlvarMarkers, callbacks.marker_callback)
     rospy.Subscriber("odom", Odometry, callbacks.odometry_callback)
+    rospy.Subscriber('joy', Joy, callbacks.controller_callback)
 
     # Create done outcome which will stop the state machine
     sm_turtle = smach.StateMachine(outcomes=['DONE'])
 
     with sm_turtle:
+        smach.StateMachine.add('WAIT', Wait(callbacks),
+                               transitions={'follow_line': 'FOLLOW_LINE', 'done': 'DONE'})
         smach.StateMachine.add('FOLLOW_LINE', FollowLine(callbacks),
                                transitions={'stop': 'STOP', 'done': 'DONE'})
         smach.StateMachine.add('STOP', Stop(callbacks),
                                transitions={'follow_line': 'FOLLOW_LINE', 'done': 'DONE',
                                             'event_one': 'EVENT_ONE',
                                             'event_two': 'EVENT_TWO',
-                                            'event_three': 'EVENT_THREE'})
+                                            'event_three': 'EVENT_THREE',
+                                            'event_four': 'EVENT_FOUR'})
 
         sm_event_1 = event_one.get_state_machine(callbacks)
         smach.StateMachine.add('EVENT_ONE', sm_event_1,
@@ -375,6 +437,10 @@ def main():
         sm_event_3 = event_three.get_state_machine(callbacks)
         smach.StateMachine.add('EVENT_THREE', sm_event_3,
                                transitions={'DONE3': 'DONE', 'SUCCESS3': 'FOLLOW_LINE'})
+
+        sm_event_4 = event_four.get_state_machine(callbacks)
+        smach.StateMachine.add('EVENT_FOUR', sm_event_4,
+                               transitions={'DONE4': 'DONE', 'SUCCESS4': 'FOLLOW_LINE'})
 
 
 
