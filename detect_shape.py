@@ -8,6 +8,7 @@ import cv2
 import imutils
 import numpy as np
 from enum import Enum
+import math
 
 
 class Shapes(Enum):
@@ -57,7 +58,7 @@ def count_objects(mask, threshold=1000, canvas=None):
     return len(big_moments)
 
 
-def detect_shape(mask, canvas=None, threshold=100):
+def detect_shape(mask, h, w, canvas=None, threshold=100):
     """Detect a shape contained in an image.
     RETURNS:
         1 IF CIRCLE
@@ -80,7 +81,7 @@ def detect_shape(mask, canvas=None, threshold=100):
         squareScore = 0
         triangleScore = 0
         circleScore = 0
-        symbol_green_mask = symbol_green_mask_good.copy()
+        symbol_green_mask = mask.copy()
         symbol_green_mask[0:h / 4, 0:w] = 0
         symbol_green_mask[3 * h / 4:h, 0:w] = 0
         contourDict = {3:0,4:0,5:0,6:0,7:0,8:0,9:0}

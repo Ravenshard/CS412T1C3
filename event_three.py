@@ -138,21 +138,19 @@ class Check(smach.State):
         global shutdown_requested
         global number_of_checks
         while not shutdown_requested:
-            number_of_checks += 1
-            h = self.callbacks.main_h
-            w = self.callbacks.main_w
-            symbol_red_mask = self.callbacks.symbol_red_mask.copy()
-            symbol_red_mask[0:h / 2, 0:w] = 0
-            shapes = detect_shape.detect_shape(symbol_red_mask)[0]
-            if len(shapes) > 0:
-                current_shape = shapes[0]
-                print(current_shape)
-                if current_shape.value == event_two.previous_shape:
-                    self.sound_pub.publish(1)
+            if self.callbacks.white_mask is not None and self.callbacks.red_mask is not None:
+                number_of_checks += 1
+                h = self.callbacks.main_h
+                w = self.callbacks.main_w
+                symbol_red_mask = self.callbacks.symbol_red_mask.copy()
+                symbol_red_mask[0:h / 2, 0:w] = 0
+                shapes = detect_shape.detect_shape(symbol_red_mask, h, w)
+                if shapes is None:
+                    time.sleep(1)
+                    return "rotate_right"
 
-                if current_shape.value == 3:
-                    if event_two.previous_shape in [-1, 5]:
-                        self.sound_pub.publish(1)
+                if shapes == event_two.previous_shape:
+                    self.sound_pub.publish(1)
 
             time.sleep(1)
             return "rotate_right"

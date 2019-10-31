@@ -142,9 +142,9 @@ class Stop(smach.State):
         self.twist = Twist()
         self.cmd_vel_pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=1)
         self.prev_error = None
-        self.Kp = 1.0 / 50.0
-        self.Ki = 1.0 / 50.0
-        self.Kd = 1.0 / 50.0
+        self.Kp = 1.0 / 150.0
+        self.Ki = 1.0 / 150.0
+        self.Kd = 1.0 / 150.0
         self.speed = 0.8
 
     def execute(self, userdata):
@@ -225,53 +225,25 @@ class Check(smach.State):
         global checked
         global previous_shape
         while not shutdown_requested:
-            symbol_red_mask = self.callbacks.symbol_red_mask.copy()
-            symbol_green_mask = self.callbacks.symbol_green_mask.copy()
-            h = self.callbacks.main_h
-            w = self.callbacks.main_w
-            symbol_red_mask[0:h / 4, 0:w] = 0
-            symbol_red_mask[3 * h / 4:h, 0:w] = 0
-            symbol_green_mask[0:h / 4, 0:w] = 0
-            symbol_green_mask[3 * h / 4:h, 0:w] = 0
+            if self.callbacks.white_mask is not None and self.callbacks.red_mask is not None:
+                symbol_red_mask = self.callbacks.symbol_red_mask.copy()
+                symbol_green_mask = self.callbacks.symbol_green_mask.copy()
+                h = self.callbacks.main_h
+                w = self.callbacks.main_w
+                symbol_red_mask[0:h / 4, 0:w] = 0
+                symbol_red_mask[3 * h / 4:h, 0:w] = 0
+                symbol_green_mask[0:h / 4, 0:w] = 0
+                symbol_green_mask[3 * h / 4:h, 0:w] = 0
 
-            count = 0
-            real_count = 0
-            for i in range(100):
+                count = detect_shape.count_objects(symbol_green_mask)
                 count += detect_shape.count_objects(symbol_red_mask)
-            real_count += math.ceil(count / 100)
+                for i in range(int(count)):
+                    self.sound_pub.publish(1)
+                    time.sleep(1)
+                checked = True
 
-            count = 0
-            for i in range(100):
-                count += detect_shape.count_objects(symbol_green_mask)
-            real_count += math.ceil(count / 100)
-
-            # print(real_count)
-            for i in range(int(real_count)):
-                self.sound_pub.publish(1)
-                time.sleep(1)
-            checked = True
-
-            endDict = dict()
-            endDict[-1] = 0
-            endDict[3] = 0
-            endDict[4] = 0
-            endDict[5] = 0
-            endDict[9] = 0
-            for i in range(10000):
-                shapes = detect_shape.detect_shape(symbol_green_mask)[0]
-                if len(shapes) > 0:
-                    endDict[shapes[0].value] += 1
-                    previous_shape = shapes[0].value
-            if endDict[4] > 7000:
-                previous_shape = 4
-                print("SQUARE")
-            elif endDict[9] > 9000:
-                previous_shape = 9
-                print("TRIANGLE")
-            elif endDict[-1] > 9000:
-                previous_shape = -1
-                print("CIRCLE")
-            print(endDict)
+                previous_shape = detect_shape.detect_shape(symbol_green_mask, h, w)
+                print(previous_shape)
 
             return 'rotate_180'
         return 'done1'

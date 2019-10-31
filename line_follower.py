@@ -42,7 +42,7 @@ class Wait(smach.State):
     def execute(self, userdata):
         global shutdown_requested
         while not shutdown_requested:
-            if True:  # TODO self.callbacks.stopWaiting
+            if self.callbacks.stopWaiting:
                 return 'follow_line'
             time.sleep(1)
         return 'done'
@@ -204,7 +204,8 @@ class FollowLine(smach.State):
                         self.prev_error = error
                     self.twist.linear.x = self.speed
                     self.twist.angular.z = rotation
-                    self.cmd_vel_pub.publish(self.twist)  # TODO: uncomment
+                    print("test")
+                    self.cmd_vel_pub.publish(self.twist)
         return 'done'
 
 
@@ -386,12 +387,12 @@ def main():
     global red_count
 
     # TESTING STUFF BELOW
-    event_two.previous_shape = 4
+    event_two.previous_shape = 1
 
-    #red_count = 0
+    red_count = 0
     #red_count = 1
     # red_count = 2 # Event 2
-    red_count = 3  # Event four
+    #red_count = 3  # Event four
     #red_count = 4  # Event 4
 
     button_start = False

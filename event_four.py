@@ -117,7 +117,7 @@ class Localize(smach.State):
             if previous_difference != difference:
                 previous_difference = difference
 
-        return 'box7' #TODO: put back
+        return 'box1'
 
 
 class Box1(smach.State):
@@ -168,7 +168,6 @@ class Box1(smach.State):
             self.led_pub.publish(3)  # red
             time.sleep(5)
             self.led_pub.publish(0)  # off
-        # TODO detect shape
 
         if shutdown_requested:
             return 'done4'
