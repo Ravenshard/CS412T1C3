@@ -59,6 +59,10 @@ def count_objects(mask, threshold=1000, canvas=None):
 
 def detect_shape(mask, canvas=None, threshold=100):
     """Detect a shape contained in an image.
+    RETURNS:
+        1 IF CIRCLE
+        2 IF TRIANGLE
+        3 IF SQUARE
 
     Adappted from: https://stackoverflow.com/questions/11424002/how-to-detect-simple-geometric-shapes-using-opencv
     """
