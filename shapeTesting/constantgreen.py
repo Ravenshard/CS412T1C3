@@ -23,10 +23,12 @@ def request_shutdown(sig, frame):
 def main():
     global symbol_green_mask_orig, symbol_green_mask_good, h, w, d
     rospy.init_node('green')
-    image_sub = rospy.Subscriber('/usb_cam/image_raw',
-                                  Image, image_callback)
+    # image_sub = rospy.Subscriber('cv_camera/image_raw',
+    #                               Image, image_callback)
+    image_sub = rospy.Subscriber('camera/rgb/image_raw',
+                                      Image, image_callback)
     while not shutdown_requested:
-        rospy.sleep(1)
+        rospy.spin()
     return
 
 def image_callback(msg):
@@ -36,42 +38,13 @@ def image_callback(msg):
 
     h, w, d = image.shape
 
-
-    upper_red_a = numpy.array([20, 255, 255])
-    lower_red_a = numpy.array([0, 100, 100])
-    red_mask_a = cv2.inRange(hsv, lower_red_a, upper_red_a)
-
-    upper_red_b = numpy.array([255, 255, 255])
-    lower_red_b = numpy.array([150, 100, 100])
-    red_mask_b = cv2.inRange(hsv, lower_red_b, upper_red_b)
-    red_mask = cv2.bitwise_or(red_mask_a, red_mask_b)
-
-    upper_red_a = numpy.array([20, 255, 255])
-    lower_red_a = numpy.array([0, 200, 60])
-    red_mask_a = cv2.inRange(hsv, lower_red_a, upper_red_a)
-
-    upper_red_b = numpy.array([255, 255, 255])
-    lower_red_b = numpy.array([150, 200, 60])
-    red_mask_b = cv2.inRange(hsv, lower_red_b, upper_red_b)
-
-    symbol_red_mask = cv2.bitwise_or(red_mask_a, red_mask_b)
-
     upper_green = numpy.array([136, 255, 255])
     lower_green = numpy.array([56, 43, 90])
     symbol_green_mask_orig = cv2.inRange(hsv, lower_green, upper_green)
+    # blur = cv2.GaussianBlur(symbol_green_mask_orig,(5,5),0)
+    blur = cv2.medianBlur(symbol_green_mask_orig, 7)
 
-    bottom_red_mask = red_mask.copy()
-    search_top = 3 * h / 4
-    search_bot = h
-    bottom_red_mask[0:search_top, 0:w] = 0
-    bottom_red_mask[search_bot:h, 0:w] = 0
-    red_pixel_count = cv2.sumElems(bottom_red_mask)[0] / 255
-
-    symbol_red_mask2 = symbol_red_mask.copy()
-    symbol_red_mask2[0:h/4, 0:w] = 0
-    symbol_red_mask2[3*h/4:h, 0:w] = 0
-
-    symbol_green_mask_good = symbol_green_mask_orig
+    symbol_green_mask_good = blur
     cv2.imshow("green window", symbol_green_mask_good)
     cv2.waitKey(3)
     return
