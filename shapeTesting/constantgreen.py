@@ -23,8 +23,10 @@ def request_shutdown(sig, frame):
 def main():
     global symbol_green_mask_orig, symbol_green_mask_good, h, w, d
     rospy.init_node('green')
+    # image_sub = rospy.Subscriber('cv_camera/image_raw',
+    #                               Image, image_callback)
     image_sub = rospy.Subscriber('camera/rgb/image_raw',
-                                  Image, image_callback)
+                                      Image, image_callback)
     while not shutdown_requested:
         rospy.spin()
     return
@@ -39,7 +41,8 @@ def image_callback(msg):
     upper_green = numpy.array([136, 255, 255])
     lower_green = numpy.array([56, 43, 90])
     symbol_green_mask_orig = cv2.inRange(hsv, lower_green, upper_green)
-    blur = cv2.GaussianBlur(symbol_green_mask_orig,(5,5),0)
+    # blur = cv2.GaussianBlur(symbol_green_mask_orig,(5,5),0)
+    blur = cv2.medianBlur(symbol_green_mask_orig, 7)
 
     symbol_green_mask_good = blur
     cv2.imshow("green window", symbol_green_mask_good)

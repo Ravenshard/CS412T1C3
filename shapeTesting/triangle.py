@@ -18,10 +18,6 @@ bridge = cv_bridge.CvBridge()
 shutdown_requested = False
 h, w, d = 0, 0, 0
 
-# Square is defined as having 4 verticles over 7000 times out of 10000
-# Circle is defined as having -1 verticles over 9000 times out of 10000
-# Triangle is defined as having 9 verticles over 9000 times out of 10000
-
 class Shapes(Enum):
     unknown = -1
     triangle = 3
@@ -40,84 +36,68 @@ def detect_shape(mask, canvas=None, threshold=100):
     """
     detected_shapes = []
     moments = []
-    _, contours, _ = cv2.findContours(mask, 1, 2)
+    thresh = cv2.threshold(mask, 250, 255, cv2.THRESH_BINARY)[1]
+    image2, contours, hierarchy = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
+                            cv2.CHAIN_APPROX_SIMPLE)
+    # print(contours)
+    cv2.drawContours(thresh, contours, -1, (255, 255, 0), 100)
+    # cv2.imshow("green window", thresh)
+    # cv2.waitKey(5)
+    contourDict = dict()
     for cnt in contours:
-        print(cnt)
-        rospy.sleep(1)
         if cv2.moments(cnt)["m00"] > threshold:
             approx = cv2.approxPolyDP(cnt, 0.01 * cv2.arcLength(cnt, True), True)
+            val = min(len(approx), 9)
+            if val in contourDict.keys(): contourDict[val] += 1
+            else: contourDict[val] = 1
 
-            if len(approx) == 3:
-                if canvas != None:
-                    cv2.drawContours(canvas, [cnt], 0, (0, 255, 0), -1)
-                detected_shapes.append(Shapes.triangle)
-                moments.append(cv2.moments(cnt))
-
-            elif len(approx) == 4:
-                if canvas != None:
-                    cv2.drawContours(canvas, [cnt], 0, (0, 0, 255), -1)
-                detected_shapes.append(Shapes.square)
-                moments.append(cv2.moments(cnt))
-            elif len(approx) == 5:
-                if canvas != None:
-                    cv2.drawContours(canvas, [cnt], 0, 255, -1)
-                detected_shapes.append(Shapes.pentagon)
-                moments.append(cv2.moments(cnt))
-            elif len(approx) > 9:
-                if canvas != None:
-                    cv2.drawContours(canvas, [cnt], 0, (0, 255, 255), -1)
-                detected_shapes.append(Shapes.circle)
-                moments.append(cv2.moments(cnt))
-            else:
-                detected_shapes.append(Shapes.unknown)
-                moments.append(cv2.moments(cnt))
-    return detected_shapes, moments
+    return contourDict
 
 def stuff():
     global symbol_green_mask_orig, symbol_green_mask_good, h, w, d
     rospy.init_node('triangle')
 
+    # image_sub = rospy.Subscriber('cv_camera/image_raw',
+                                      # Image, image_callback)
     image_sub = rospy.Subscriber('camera/rgb/image_raw',
                                       Image, image_callback)
 
 
-    endDict = dict()
-    endDict[-1] = 0
-    endDict[3] = 0
-    endDict[4] = 0
-    endDict[5] = 0
-    endDict[9] = 0
+    endDict = {3:0,4:0,5:0,6:0,7:0,8:0,9:0}
+    loop = 1000
     count = 0
-    while not shutdown_requested and count < 1000:
+    while not shutdown_requested and count < loop:
         if symbol_green_mask_good[0][0] == 'a': continue
         symbol_green_mask = symbol_green_mask_good.copy()
 
         symbol_green_mask[0:h / 4, 0:w] = 0
         symbol_green_mask[3 * h / 4:h, 0:w] = 0
-        shapes = detect_shape(symbol_green_mask)[0]
-        if len(shapes) > 0:
-            endDict[shapes[0].value] += 1
-            previous_shape = shapes[0].value
-            # print(previous_shape)
+        shapes = detect_shape(symbol_green_mask)
+        for key in shapes.keys():
+            if key in endDict.keys(): endDict[key] += 1
+            else: endDict[key] = 1
         count += 1
-    Circle = {-1:13, 3:0, 4:0, 5:0, 9:987}
-    Square = {-1:16, 3:0, 4:853, 5:131, 9:0}
-    Triangle = {-1:347, 3:97, 4:68, 5:60, 9:428}
+    Circle = {3:0,4:0,5:0,6:0,7:66,8:91,9:843}
+    Square = {3:0,4:45,5:329,6:466,7:140,8:21,9:0}
+    Triangle = {3:29,4:316,5:129,6:411,7:115,8:0,9:0}
     squareScore = 0
     triangleScore = 0
     circleScore = 0
-    # print("endDict")
-    print(endDict)
     for key, val in endDict.items():
-        # print("LOOP: key: {} \t val: {}".format(key, val))
-        # print("AVGS: square: {} \t triangle: {} \t circle: {}".format(Square[key], Triangle[key], Circle[key]))
         squareScore += math.sqrt(pow(Square[key] - val,2))
         triangleScore += math.sqrt(pow(Triangle[key] - val,2))
         circleScore += math.sqrt(pow((Circle[key] - val),2))
-        # print("SCORES: squareScore: {} \t triangleScore: {} \t circleScore: {}".format(squareScore, triangleScore, circleScore))
-        # rospy.sleep(1)
-    # print("FINAL")
-    print("circle: {} \t triangle: {} \t square: {}".format(circleScore, triangleScore, squareScore))
+    x = (min([squareScore, triangleScore, circleScore]))
+    if squareScore == x: print("square")
+    elif triangleScore == x: print("triangle")
+    elif circleScore == x: print("circle")
+    # fileObj = open("notes.txt", 'a')
+    # fileObj.write("--------------------------------------------------\n")
+    # for key,val in endDict.items():
+    #     fileObj.write("{}:{}, ".format(key,val))
+    # fileObj.write("\n--------------------------------------------------\n")
+    # fileObj.close()
+    print(endDict)
     return 'rotate_180'
 
 
@@ -132,11 +112,22 @@ def image_callback(msg):
     upper_green = numpy.array([136, 255, 255])
     lower_green = numpy.array([56, 43, 90])
     symbol_green_mask_orig = cv2.inRange(hsv, lower_green, upper_green)
-    blur = cv2.GaussianBlur(symbol_green_mask_orig,(5,5),0)
+    # blur = cv2.GaussianBlur(symbol_green_mask_orig,(27,27),0)
+    # blur = cv2.blur(symbol_green_mask_orig, (3,3))
+    blur = cv2.medianBlur(symbol_green_mask_orig, 7)
 
     symbol_green_mask_good = blur
-    cv2.imshow("green window", symbol_green_mask_good)
+    cv2.imshow("orig", symbol_green_mask_good)
     cv2.waitKey(3)
+    # cv2.imshow("green window", symbol_green_mask_good)
+    # cv2.waitKey(5)
+    # upper_green = numpy.array([120, 255, 255])
+    # lower_green = numpy.array([50, 100, 100])
+    # symbol_green_mask_orig = cv2.inRange(hsv, lower_green, upper_green)
+    # blur = cv2.GaussianBlur(symbol_green_mask_orig,(5,5),0)
+    # symbol_green_mask_good = blur
+    # cv2.imshow("green window", symbol_green_mask_good)
+    # cv2.waitKey(3)
     return
 
 if __name__ == '__main__':
