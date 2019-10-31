@@ -33,29 +33,29 @@ class RotateLeft(smach.State):
         while not shutdown_requested:
 
             target_heading = (self.callbacks.heading + 90) % 360
-            # val = turn(self, target_heading)
-            # if val != None: return val
-            turning = True
-            previous_difference = None
-            while turning:
-                if shutdown_requested:
-                    return 'done2'
-                difference = minimum_angle_between_headings(target_heading, self.callbacks.heading)
-
-                if previous_difference is None:
-                    self.twist.angular.z = 0.4
-                    self.cmd_vel_pub.publish(self.twist)
-                else:
-                    if difference < 1:
-                        turning = False
-                        self.twist.angular.z = 0
-                        self.cmd_vel_pub.publish(self.twist)
-                    else:
-                        self.twist.angular.z = 0.4
-                        self.cmd_vel_pub.publish(self.twist)
-
-                if previous_difference != difference:
-                    previous_difference = difference
+            val = turn(self, target_heading)
+            if val != None: return val
+            # turning = True
+            # previous_difference = None
+            # while turning:
+            #     if shutdown_requested:
+            #         return 'done2'
+            #     difference = minimum_angle_between_headings(target_heading, self.callbacks.heading)
+            #
+            #     if previous_difference is None:
+            #         self.twist.angular.z = 0.4
+            #         self.cmd_vel_pub.publish(self.twist)
+            #     else:
+            #         if difference < 1:
+            #             turning = False
+            #             self.twist.angular.z = 0
+            #             self.cmd_vel_pub.publish(self.twist)
+            #         else:
+            #             self.twist.angular.z = 0.4
+            #             self.cmd_vel_pub.publish(self.twist)
+            #
+            #     if previous_difference != difference:
+            #         previous_difference = difference
 
             if checked:
                 return 'success2'
@@ -332,22 +332,23 @@ def turn(classObj, target_heading):
     global shutdown_requested
     turning = True
     previous_difference = None
+    turnRate = 0.4
     while turning:
         if shutdown_requested:
             return 'done2'
         difference = minimum_angle_between_headings(target_heading, classObj.callbacks.heading)
 
         if previous_difference is None:
-            classObj.twist.angular.z = 0.4
-            classObj.cmd_vel_pub.publish(self.twist)
+            classObj.twist.angular.z = turnRate
+            classObj.cmd_vel_pub.publish(classObj.twist)
         else:
             if difference < 1:
                 turning = False
                 classObj.twist.angular.z = 0
-                classObj.cmd_vel_pub.publish(self.twist)
+                classObj.cmd_vel_pub.publish(classObj.twist)
             else:
-                classObj.twist.angular.z = 0.4
-                classObj.cmd_vel_pub.publish(self.twist)
+                classObj.twist.angular.z = turnRate
+                classObj.cmd_vel_pub.publish(classObj.twist)
 
         if previous_difference != difference:
             previous_difference = difference

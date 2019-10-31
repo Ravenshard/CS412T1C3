@@ -8,6 +8,7 @@ import cv2
 import cv_bridge
 import numpy
 import time
+import math
 from sensor_msgs.msg import Image
 from enum import Enum
 
@@ -41,8 +42,11 @@ def detect_shape(mask, canvas=None, threshold=100):
     moments = []
     _, contours, _ = cv2.findContours(mask, 1, 2)
     for cnt in contours:
+        print(cnt)
+        rospy.sleep(1)
         if cv2.moments(cnt)["m00"] > threshold:
             approx = cv2.approxPolyDP(cnt, 0.01 * cv2.arcLength(cnt, True), True)
+
             if len(approx) == 3:
                 if canvas != None:
                     cv2.drawContours(canvas, [cnt], 0, (0, 255, 0), -1)
@@ -96,12 +100,24 @@ def stuff():
             previous_shape = shapes[0].value
             # print(previous_shape)
         count += 1
+    Circle = {-1:13, 3:0, 4:0, 5:0, 9:987}
+    Square = {-1:16, 3:0, 4:853, 5:131, 9:0}
+    Triangle = {-1:347, 3:97, 4:68, 5:60, 9:428}
+    squareScore = 0
+    triangleScore = 0
+    circleScore = 0
+    # print("endDict")
     print(endDict)
-    fileObj = open("notes.txt", 'a')
-    fileObj.write("----------------\n")
-    fileObj.write("-1: {}\t 3: {}\t 4: {}\t 5: {}\t 9: {}".format(endDict[-1], endDict[3], endDict[4], endDict[5], endDict[9]))
-    fileObj.write("\n")
-    fileObj.close()
+    for key, val in endDict.items():
+        # print("LOOP: key: {} \t val: {}".format(key, val))
+        # print("AVGS: square: {} \t triangle: {} \t circle: {}".format(Square[key], Triangle[key], Circle[key]))
+        squareScore += math.sqrt(pow(Square[key] - val,2))
+        triangleScore += math.sqrt(pow(Triangle[key] - val,2))
+        circleScore += math.sqrt(pow((Circle[key] - val),2))
+        # print("SCORES: squareScore: {} \t triangleScore: {} \t circleScore: {}".format(squareScore, triangleScore, circleScore))
+        # rospy.sleep(1)
+    # print("FINAL")
+    print("circle: {} \t triangle: {} \t square: {}".format(circleScore, triangleScore, squareScore))
     return 'rotate_180'
 
 
@@ -113,42 +129,12 @@ def image_callback(msg):
 
     h, w, d = image.shape
 
-
-    upper_red_a = numpy.array([20, 255, 255])
-    lower_red_a = numpy.array([0, 100, 100])
-    red_mask_a = cv2.inRange(hsv, lower_red_a, upper_red_a)
-
-    upper_red_b = numpy.array([255, 255, 255])
-    lower_red_b = numpy.array([150, 100, 100])
-    red_mask_b = cv2.inRange(hsv, lower_red_b, upper_red_b)
-    red_mask = cv2.bitwise_or(red_mask_a, red_mask_b)
-
-    upper_red_a = numpy.array([20, 255, 255])
-    lower_red_a = numpy.array([0, 200, 60])
-    red_mask_a = cv2.inRange(hsv, lower_red_a, upper_red_a)
-
-    upper_red_b = numpy.array([255, 255, 255])
-    lower_red_b = numpy.array([150, 200, 60])
-    red_mask_b = cv2.inRange(hsv, lower_red_b, upper_red_b)
-
-    symbol_red_mask = cv2.bitwise_or(red_mask_a, red_mask_b)
-
     upper_green = numpy.array([136, 255, 255])
     lower_green = numpy.array([56, 43, 90])
     symbol_green_mask_orig = cv2.inRange(hsv, lower_green, upper_green)
+    blur = cv2.GaussianBlur(symbol_green_mask_orig,(5,5),0)
 
-    bottom_red_mask = red_mask.copy()
-    search_top = 3 * h / 4
-    search_bot = h
-    bottom_red_mask[0:search_top, 0:w] = 0
-    bottom_red_mask[search_bot:h, 0:w] = 0
-    red_pixel_count = cv2.sumElems(bottom_red_mask)[0] / 255
-
-    symbol_red_mask2 = symbol_red_mask.copy()
-    symbol_red_mask2[0:h/4, 0:w] = 0
-    symbol_red_mask2[3*h/4:h, 0:w] = 0
-
-    symbol_green_mask_good = symbol_green_mask_orig
+    symbol_green_mask_good = blur
     cv2.imshow("green window", symbol_green_mask_good)
     cv2.waitKey(3)
     return
