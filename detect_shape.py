@@ -64,6 +64,53 @@ def detect_shape(mask, canvas=None, threshold=100):
     """
     detected_shapes = []
     moments = []
+    thresh = cv2.threshold(mask, 250, 255, cv2.THRESH_BINARY)[1]
+    image2, contours, hierarchy = cv2.findContours(thresh.copy(), cv2.RETR_EXTERNAL,
+                            cv2.CHAIN_APPROX_SIMPLE)
+    Circle = {3:0,4:0,5:0,6:0,7:66,8:91,9:843}
+    Square = {3:0,4:45,5:329,6:466,7:140,8:21,9:0}
+    Triangle = {3:29,4:316,5:129,6:411,7:115,8:0,9:0}
+    # circle = 1, triangle = 2, square = 3
+    classifier = {1:0,2:0,3:0}
+    for j in range(10):
+        squareScore = 0
+        triangleScore = 0
+        circleScore = 0
+        symbol_green_mask = symbol_green_mask_good.copy()
+        symbol_green_mask[0:h / 4, 0:w] = 0
+        symbol_green_mask[3 * h / 4:h, 0:w] = 0
+        contourDict = {3:0,4:0,5:0,6:0,7:0,8:0,9:0}
+        for i in range(1000):
+            for cnt in contours:
+                if cv2.moments(cnt)["m00"] > threshold:
+                    approx = cv2.approxPolyDP(cnt, 0.01 * cv2.arcLength(cnt, True), True)
+                    val = min(len(approx), 9)
+                    if val in contourDict.keys(): contourDict[val] += 1
+                    else: contourDict[val] = 1
+
+        for key, val in contourDict.items():
+            squareScore += math.sqrt(pow(Square[key] - val,2))
+            triangleScore += math.sqrt(pow(Triangle[key] - val,2))
+            circleScore += math.sqrt(pow((Circle[key] - val),2))
+        minVal = (min([squareScore, triangleScore, circleScore]))
+        if squareScore == minVal:
+            classifier[3] += 1
+            if classifier[3] >= 5: return 3
+        elif triangleScore == minVal:
+            classifier[2] += 1
+            if classifier[2] >= 5: return 2
+        elif circleScore == minVal:
+            classifier[1] += 1
+            if classifier[1] >= 5: return 1
+    return None
+
+def detect_shape_2(mask, canvas=None, threshold=100):
+    """Detect a shape contained in an image.
+
+    Adappted from: https://stackoverflow.com/questions/11424002/how-to-detect-simple-geometric-shapes-using-opencv
+    """
+    detected_shapes = []
+    moments = []
     _, contours, _ = cv2.findContours(mask, 1, 2)
     for cnt in contours:
         if cv2.moments(cnt)["m00"] > threshold:
