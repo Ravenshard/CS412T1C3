@@ -42,7 +42,7 @@ class Wait(smach.State):
     def execute(self, userdata):
         global shutdown_requested
         while not shutdown_requested:
-            if self.callbacks.stopWaiting:
+            if True:  # TODO self.callbacks.stopWaiting
                 return 'follow_line'
             time.sleep(1)
         return 'done'
@@ -388,11 +388,11 @@ def main():
     # TESTING STUFF BELOW
     event_two.previous_shape = 4
 
-    # red_count = 0
-    red_count = 1
-    # red_count = 2
-    # red_count = 3
-    # red_count = 4
+    #red_count = 0
+    #red_count = 1
+    # red_count = 2 # Event 2
+    red_count = 3  # Event four
+    #red_count = 4  # Event 4
 
     button_start = False
 

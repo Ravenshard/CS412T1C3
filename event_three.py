@@ -27,10 +27,10 @@ class OdomFollow(smach.State):
         self.twist = Twist()
         self.cmd_vel_pub = rospy.Publisher('cmd_vel_mux/input/teleop', Twist, queue_size=1)
         self.prev_error = None
-        self.Kp = 1.0 / 50.0
-        self.Ki = 1.0 / 50.0
-        self.Kd = 1.0 / 50.0
-        self.speed = 0.8
+        self.Kp = 1.0 / 200.0
+        self.Ki = 1.0 / 200.0
+        self.Kd = 1.0 / 200.0
+        self.speed = 0.6
 
     def execute(self, userdata):
         global shutdown_requested
